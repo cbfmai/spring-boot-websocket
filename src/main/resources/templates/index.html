@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <script src="//code.jquery.com/jquery-1.11.2.min.js"></script>
+    <script src="sockjs-0.3.4.min.js"></script>
+    <script src="stomp.min.js"></script>
+</head>
+
+<body>
+
+<p>
+    Click the button below to perform an action.
+    <br/>
+</p>
+<input id="do-some-action" type="button" value="Click me"/>
+
+<!-- Javascript functions -->
+<script>
+
+    /**
+     * Send an action to the server.
+     */
+    function sendAction(event) {
+        event.preventDefault();
+        $.ajax({
+            url: "/some-action",
+            type: "POST"
+        });
+        return;
+    } // function sendAction
+
+    /**
+     * Init operations.
+     */
+    $(document).ready(function () {
+
+        // Bind the on-click event for the button element.
+        $("#do-some-action").on("click", sendAction);
+
+
+        // Start the web socket connection.
+        connect();
+
+        Notification.requestPermission(function (status) {
+            // 这将使我们能在 Chrome/Safari 中使用 Notification.permission
+            if (Notification.permission !== status) {
+                Notification.permission = status;
+            }
+        });
+    });
+
+
+    /**
+     * Open the web socket connection and subscribe the "/notify" channel.
+     */
+    function connect() {
+
+        // Create and init the SockJS object
+        var socket = new SockJS('/ws');
+        var stompClient = Stomp.over(socket);
+
+        // Subscribe the '/notify' channel
+        stompClient.connect({}, function () {
+            console.log('notice socket connected!');
+            stompClient.subscribe('/topic/messages', function (message) {
+                console.log(JSON.stringify(message.body))
+                // Call the notify function when receive a notification
+                //notify(JSON.parse(notification.body).content);
+                notifyMe(JSON.parse(message.body).content);
+            });
+        });
+
+        return;
+    } // function connect
+
+    /**
+     * Display the notification message.
+     */
+    function notify(message) {
+        $("#notifications-area").append(message + "\n");
+        return;
+    }
+
+    function notifyMe(message) {
+        // Let's check if the browser supports notifications
+        if (!("Notification" in window)) {
+            alert("This browser does not support desktop notification");
+        }
+
+        // Let's check whether notification permissions have already been granted
+        else if (Notification.permission === "granted") {
+            // If it's okay let's create a notification
+            var options = {
+                requireInteraction: true
+            };
+            var notification = new Notification("Hi there!" + message, options);
+
+            notification.onclick = function (event) {
+                event.preventDefault(); // prevent the browser from focusing the Notification's tab
+                window.open('http://www.mozilla.org', '_blank');
+            }
+        }
+
+        // Otherwise, we need to ask the user for permission
+        else if (Notification.permission !== "denied") {
+            Notification.requestPermission(function (permission) {
+                // If the user accepts, let's create a notification
+                if (permission === "granted") {
+                    var notification = new Notification("Hi there!" + message, options);
+                    notification.onclick = function (event) {
+                        event.preventDefault(); // prevent the browser from focusing the Notification's tab
+                        window.open('http://www.mozilla.org', '_blank');
+                    }
+                }
+            });
+        }
+
+        // At last, if the user has denied notifications, and you
+        // want to be respectful there is no need to bother them any more.
+        return;
+    }
+
+</script>
+
+<br/>
+
+
+</body>
+
+</html>
